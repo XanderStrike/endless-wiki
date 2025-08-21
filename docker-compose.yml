@@ -8,8 +8,11 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+      - ./entrypoint.sh:/entrypoint.sh
     environment:
       - OLLAMA_ORIGINS=*
+      - OLLAMA_MODEL=gemma3:1b
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
     restart: unless-stopped
     # Uncomment the following lines if you have a GPU
     # deploy:
