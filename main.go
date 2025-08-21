@@ -105,12 +105,12 @@ func generateArticleStream(articleName string, w http.ResponseWriter) error {
 
 	log.Printf("Generating article '%s' using model '%s' at host '%s'", articleName, ollamaModel, ollamaHost)
 
-	prompt := fmt.Sprintf(`You are a wiki article generator. Generate an informative article about "%s" in markdown. 
+	prompt := fmt.Sprintf(`You are a wiki article generator. Generate a short informative article about "%s" in markdown. 
 
 Requirements:
 - Write like wikipedia
 - Include an appropriate number of sections with clear section headers
-- Make the article detailed and informative
+- Make the article brief
 - Use proper paragraph structure
 - Provide only the text of the article, no followup questions
 
