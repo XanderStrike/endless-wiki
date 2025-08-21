@@ -125,7 +125,11 @@
         };
         
         eventSource.addEventListener('content', function(event) {
-            const content = event.data.replace(/\\n/g, '\n');
+            let content = event.data.replace(/\\n/g, '\n');
+            
+            // Strip out markdown code fences if they appear at the start
+            content = content.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '');
+            
             // Parse markdown and render as HTML
             const htmlContent = marked.parse(content);
             contentDiv.innerHTML = htmlContent;
