@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ollama:
     image: ollama/ollama:latest
@@ -22,7 +20,7 @@ services:
     #           capabilities: [gpu]
 
   endless-wiki:
-    build: .
+    image: xanderstrike/endless-wiki:latest
     container_name: endless-wiki
     ports:
       - "8080:8080"
