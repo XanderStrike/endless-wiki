@@ -399,6 +399,16 @@ func renderStreamingWikiPage(w http.ResponseWriter, title string) {
         eventSource.addEventListener('content', function(event) {
             const content = event.data.replace(/\\n/g, '\n');
             contentDiv.innerHTML = content;
+            
+            // Re-attach click handlers to all wiki links after content update
+            const wikiLinks = contentDiv.querySelectorAll('a[href^="/wiki/"]');
+            wikiLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.location.href = this.href;
+                });
+            });
         });
         
         eventSource.addEventListener('complete', function(event) {
