@@ -151,27 +151,15 @@ func generateArticleStream(articleName string, w http.ResponseWriter) error {
 	
 	log.Printf("Generating article '%s' using model '%s' at host '%s'", articleName, ollamaModel, ollamaHost)
 	
-	prompt := fmt.Sprintf(`You are a wiki article generator. Generate a comprehensive, informative article about "%s" in markdown format. 
+	prompt := fmt.Sprintf(`You are a wiki article generator. Generate a comprehensive, informative article about "%s" in plain text format (no markdown). 
 
 Requirements:
-- Write in an encyclopedic style with extensive cross-referencing
-- Include multiple sections with appropriate headers
-- Add TONS of links to related topics using markdown link syntax [Topic Name](topic-name)
-- Link every relevant concept, person, place, technology, theory, or related topic mentioned
-- Aim for 20-50+ links throughout the article - the more the better!
-- Link both obvious connections and tangential related topics
-- Make the article detailed and informative with rich interconnections
-- Use proper markdown formatting
-- Think of this as creating a web of knowledge where readers can explore endlessly
-
-IMPORTANT: Be very generous with links. If you mention any concept that could be its own article, link it! Examples:
-- Historical periods, events, people
-- Scientific concepts, theories, discoveries
-- Geographic locations, countries, cities
-- Technologies, inventions, methods
-- Cultural movements, philosophies, religions
-- Academic fields, disciplines, subjects
-- Organizations, institutions, companies
+- Write in an encyclopedic style
+- Include multiple sections with clear section headers
+- Make the article detailed and informative
+- Use proper paragraph structure
+- Do NOT use any markdown formatting - just plain text
+- Focus on creating quality content about the topic
 
 Generate the article now:`, articleName)
 	
@@ -204,12 +192,11 @@ Generate the article now:`, articleName)
 		if ollamaResp.Response != "" {
 			fullContent.WriteString(ollamaResp.Response)
 			
-			// Convert the accumulated markdown to HTML
-			htmlContent := blackfriday.Run([]byte(fullContent.String()))
-			processedContent := processWikiLinks(string(htmlContent))
+			// Convert plain text to HTML with every word as a link
+			htmlContent := makeEveryWordClickable(fullContent.String())
 			
 			// Send the updated content via SSE
-			fmt.Fprintf(w, "event: content\ndata: %s\n\n", strings.ReplaceAll(processedContent, "\n", "\\n"))
+			fmt.Fprintf(w, "event: content\ndata: %s\n\n", strings.ReplaceAll(htmlContent, "\n", "\\n"))
 			
 			// Flush the response
 			if flusher, ok := w.(http.Flusher); ok {
@@ -225,11 +212,96 @@ Generate the article now:`, articleName)
 	return nil
 }
 
-func processWikiLinks(content string) string {
-	// Convert markdown links to wiki links
-	// This is a simple regex replacement - in production you might want more sophisticated parsing
-	content = strings.ReplaceAll(content, `<a href="`, `<a href="/wiki/`)
-	return content
+func makeEveryWordClickable(content string) string {
+	// Split content into lines to preserve structure
+	lines := strings.Split(content, "\n")
+	var result strings.Builder
+	
+	for i, line := range lines {
+		if i > 0 {
+			result.WriteString("\n")
+		}
+		
+		// Skip empty lines
+		if strings.TrimSpace(line) == "" {
+			result.WriteString("<br>")
+			continue
+		}
+		
+		// Check if this looks like a header (simple heuristic)
+		trimmed := strings.TrimSpace(line)
+		if len(trimmed) > 0 && (strings.HasSuffix(trimmed, ":") || 
+			(len(trimmed) < 100 && !strings.Contains(trimmed, ".") && 
+			 strings.ToUpper(trimmed[:1]) == trimmed[:1])) {
+			result.WriteString("<h3>")
+			result.WriteString(makeWordsClickable(line))
+			result.WriteString("</h3>")
+		} else {
+			result.WriteString("<p>")
+			result.WriteString(makeWordsClickable(line))
+			result.WriteString("</p>")
+		}
+	}
+	
+	return result.String()
+}
+
+func makeWordsClickable(text string) string {
+	// Split text into words while preserving punctuation
+	words := strings.Fields(text)
+	var result strings.Builder
+	
+	for i, word := range words {
+		if i > 0 {
+			result.WriteString(" ")
+		}
+		
+		// Extract the actual word from punctuation
+		cleanWord := strings.Trim(word, ".,!?;:()[]{}\"'")
+		
+		// Skip very short words and common words that don't make good articles
+		if len(cleanWord) <= 2 || isCommonWord(cleanWord) {
+			result.WriteString(word)
+		} else {
+			// Get the prefix and suffix punctuation
+			prefix := word[:len(word)-len(strings.TrimLeft(word, ".,!?;:()[]{}\"'"))]
+			suffix := word[len(strings.TrimRight(word, ".,!?;:()[]{}\"'")):]
+			
+			result.WriteString(prefix)
+			result.WriteString(fmt.Sprintf(`<a href="/wiki/%s">%s</a>`, cleanWord, cleanWord))
+			result.WriteString(suffix)
+		}
+	}
+	
+	return result.String()
+}
+
+func isCommonWord(word string) bool {
+	commonWords := map[string]bool{
+		"the": true, "a": true, "an": true, "and": true, "or": true, "but": true,
+		"in": true, "on": true, "at": true, "to": true, "for": true, "of": true,
+		"with": true, "by": true, "is": true, "are": true, "was": true, "were": true,
+		"be": true, "been": true, "have": true, "has": true, "had": true, "do": true,
+		"does": true, "did": true, "will": true, "would": true, "could": true, "should": true,
+		"may": true, "might": true, "can": true, "must": true, "shall": true,
+		"this": true, "that": true, "these": true, "those": true, "it": true, "its": true,
+		"he": true, "she": true, "they": true, "we": true, "you": true, "i": true,
+		"me": true, "him": true, "her": true, "them": true, "us": true, "my": true,
+		"your": true, "his": true, "her": true, "their": true, "our": true,
+		"as": true, "so": true, "if": true, "when": true, "where": true, "why": true,
+		"how": true, "what": true, "who": true, "which": true, "than": true, "then": true,
+		"now": true, "here": true, "there": true, "up": true, "down": true, "out": true,
+		"off": true, "over": true, "under": true, "again": true, "further": true,
+		"once": true, "more": true, "most": true, "other": true, "some": true, "any": true,
+		"each": true, "few": true, "all": true, "both": true, "either": true, "neither": true,
+		"not": true, "no": true, "nor": true, "too": true, "very": true, "just": true,
+		"only": true, "own": true, "same": true, "such": true, "into": true, "from": true,
+		"about": true, "after": true, "before": true, "during": true, "between": true,
+		"through": true, "above": true, "below": true, "because": true, "until": true,
+		"while": true, "since": true, "although": true, "though": true, "unless": true,
+	}
+	
+	return commonWords[strings.ToLower(word)]
 }
 
 func renderStreamingWikiPage(w http.ResponseWriter, title string) {
