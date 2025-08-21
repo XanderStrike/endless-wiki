@@ -152,12 +152,24 @@ func generateArticleStream(articleName string, w http.ResponseWriter) error {
 	prompt := fmt.Sprintf(`You are a wiki article generator. Generate a comprehensive, informative article about "%s" in markdown format. 
 
 Requirements:
-- Write in an encyclopedic style
+- Write in an encyclopedic style with extensive cross-referencing
 - Include multiple sections with appropriate headers
-- Add links to related topics using markdown link syntax [Topic Name](topic-name)
-- Make the article detailed and informative
-- Include at least 5-10 links to related articles
+- Add TONS of links to related topics using markdown link syntax [Topic Name](topic-name)
+- Link every relevant concept, person, place, technology, theory, or related topic mentioned
+- Aim for 20-50+ links throughout the article - the more the better!
+- Link both obvious connections and tangential related topics
+- Make the article detailed and informative with rich interconnections
 - Use proper markdown formatting
+- Think of this as creating a web of knowledge where readers can explore endlessly
+
+IMPORTANT: Be very generous with links. If you mention any concept that could be its own article, link it! Examples:
+- Historical periods, events, people
+- Scientific concepts, theories, discoveries
+- Geographic locations, countries, cities
+- Technologies, inventions, methods
+- Cultural movements, philosophies, religions
+- Academic fields, disciplines, subjects
+- Organizations, institutions, companies
 
 Generate the article now:`, articleName)
 	
