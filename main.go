@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/russross/blackfriday/v2"
 )
 
 type OllamaRequest struct {
@@ -287,7 +286,7 @@ func isCommonWord(word string) bool {
 		"this": true, "that": true, "these": true, "those": true, "it": true, "its": true,
 		"he": true, "she": true, "they": true, "we": true, "you": true, "i": true,
 		"me": true, "him": true, "her": true, "them": true, "us": true, "my": true,
-		"your": true, "his": true, "her": true, "their": true, "our": true,
+		"your": true, "his": true, "their": true, "our": true,
 		"as": true, "so": true, "if": true, "when": true, "where": true, "why": true,
 		"how": true, "what": true, "who": true, "which": true, "than": true, "then": true,
 		"now": true, "here": true, "there": true, "up": true, "down": true, "out": true,
