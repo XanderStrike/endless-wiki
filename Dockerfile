@@ -24,8 +24,12 @@ WORKDIR /root/
 # Copy the binary from builder
 COPY --from=builder /app/main .
 
-# Copy templates
+# Copy templates and entrypoint script
 COPY --from=builder /app/templates ./templates
+COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
+
+# Make entrypoint script executable
+RUN chmod +x ./entrypoint.sh
 
 # Expose port
 EXPOSE 8080
