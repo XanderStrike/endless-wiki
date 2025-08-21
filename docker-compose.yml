@@ -27,7 +27,7 @@ services:
       - "8080:8080"
     environment:
       - OLLAMA_HOST=http://ollama:11434
-      - OLLAMA_MODEL=llama2
+      - OLLAMA_MODEL=gemma3:1b
       - PORT=8080
     depends_on:
       - ollama
