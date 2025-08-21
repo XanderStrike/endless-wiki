@@ -203,6 +203,20 @@
                 }
             }, 200);
         });
+        
+        // Stop article generation when user navigates away
+        window.addEventListener('beforeunload', function() {
+            if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
+                eventSource.close();
+            }
+        });
+        
+        // Also stop generation when page becomes hidden (tab switching, etc.)
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && eventSource && eventSource.readyState !== EventSource.CLOSED) {
+                eventSource.close();
+            }
+        });
     </script>
 </body>
 </html>

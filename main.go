@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -81,18 +82,28 @@ func streamHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
+	// Create a context that gets cancelled when the client disconnects
+	ctx := r.Context()
+
 	// Generate article content using Ollama with streaming
-	err := generateArticleStream(articleName, w)
+	err := generateArticleStream(ctx, articleName, w)
 	if err != nil {
+		// Check if it was cancelled due to client disconnect
+		if ctx.Err() == context.Canceled {
+			log.Printf("Article generation cancelled for '%s' (client disconnected)", articleName)
+			return
+		}
 		log.Printf("Error generating article: %v", err)
 		fmt.Fprintf(w, "event: error\ndata: Failed to generate article\n\n")
 	}
 
-	// Send completion event
-	fmt.Fprintf(w, "event: complete\ndata: done\n\n")
+	// Send completion event (only if not cancelled)
+	if ctx.Err() == nil {
+		fmt.Fprintf(w, "event: complete\ndata: done\n\n")
+	}
 }
 
-func generateArticleStream(articleName string, w http.ResponseWriter) error {
+func generateArticleStream(ctx context.Context, articleName string, w http.ResponseWriter) error {
 	ollamaHost := os.Getenv("OLLAMA_HOST")
 	if ollamaHost == "" {
 		ollamaHost = "http://localhost:11434"
@@ -128,7 +139,15 @@ Generate the article now:`, articleName)
 		return err
 	}
 
-	resp, err := http.Post(ollamaHost+"/api/generate", "application/json", bytes.NewBuffer(jsonData))
+	// Create HTTP request with context for cancellation
+	req, err := http.NewRequestWithContext(ctx, "POST", ollamaHost+"/api/generate", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -138,8 +157,20 @@ Generate the article now:`, articleName)
 	var fullContent strings.Builder
 
 	for {
+		// Check if context was cancelled
+		select {
+		case <-ctx.Done():
+			log.Printf("Article generation cancelled for '%s'", articleName)
+			return ctx.Err()
+		default:
+		}
+
 		var ollamaResp OllamaResponse
 		if err := decoder.Decode(&ollamaResp); err != nil {
+			// Check if it's a context cancellation error
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			break
 		}
 
