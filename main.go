@@ -26,6 +26,9 @@ type OllamaResponse struct {
 }
 
 func main() {
+	// Ensure the preferred model is downloaded on startup
+	ensureModelDownloaded()
+
 	r := mux.NewRouter()
 
 	r.HandleFunc("/", homeHandler).Methods("GET")
@@ -195,6 +198,46 @@ Generate the article now:`, articleName)
 	return nil
 }
 
+
+func ensureModelDownloaded() {
+	ollamaHost := os.Getenv("OLLAMA_HOST")
+	if ollamaHost == "" {
+		ollamaHost = "http://localhost:11434"
+	}
+
+	ollamaModel := os.Getenv("OLLAMA_MODEL")
+	if ollamaModel == "" {
+		ollamaModel = "llama2"
+	}
+
+	log.Printf("Ensuring model '%s' is available at '%s'", ollamaModel, ollamaHost)
+
+	// Try to pull the model
+	pullReq := struct {
+		Name string `json:"name"`
+	}{
+		Name: ollamaModel,
+	}
+
+	jsonData, err := json.Marshal(pullReq)
+	if err != nil {
+		log.Printf("Error marshaling pull request: %v", err)
+		return
+	}
+
+	resp, err := http.Post(ollamaHost+"/api/pull", "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Printf("Error pulling model (Ollama may not be ready yet): %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 200 {
+		log.Printf("Model '%s' is ready", ollamaModel)
+	} else {
+		log.Printf("Model pull returned status %d", resp.StatusCode)
+	}
+}
 
 func renderStreamingWikiPage(w http.ResponseWriter, title string) {
 	tmpl, err := template.ParseFiles("templates/wiki.html")

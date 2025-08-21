@@ -4,11 +4,8 @@ services:
     container_name: ollama
     volumes:
       - ollama_data:/root/.ollama
-      - shared_scripts:/shared
     environment:
       - OLLAMA_ORIGINS=*
-      - OLLAMA_MODEL=gemma3:1b
-    entrypoint: ["/bin/bash", "/shared/entrypoint.sh"]
     restart: unless-stopped
     # Uncomment the following lines if you have a GPU
     # deploy:
@@ -28,13 +25,9 @@ services:
       - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=gemma3:1b
       - PORT=8080
-    volumes:
-      - shared_scripts:/shared
     depends_on:
       - ollama
     restart: unless-stopped
-    command: sh -c "cp /root/entrypoint.sh /shared/ && ./main"
 
 volumes:
   ollama_data:
-  shared_scripts:
