@@ -325,9 +325,22 @@ func renderStreamingWikiPage(w http.ResponseWriter, title string) {
             z-index: 1000;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             display: none;
+            white-space: nowrap;
+            max-width: 300px;
+            text-overflow: ellipsis;
+            overflow: hidden;
         }
         .selection-popup:hover {
             background: #005a87;
+        }
+        .selection-popup::before {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border: 5px solid transparent;
+            border-top-color: #007cba;
         }
         .content {
             user-select: text;
@@ -383,20 +396,24 @@ func renderStreamingWikiPage(w http.ResponseWriter, title string) {
         
         // Handle text selection
         document.addEventListener('mouseup', function(event) {
-            const selection = window.getSelection();
-            const text = selection.toString().trim();
-            
-            if (text.length > 0 && text.length <= 100) {
-                selectedText = text;
-                const range = selection.getRangeAt(0);
-                const rect = range.getBoundingClientRect();
+            setTimeout(function() {
+                const selection = window.getSelection();
+                const text = selection.toString().trim();
                 
-                popup.style.left = (rect.left + rect.width / 2 - popup.offsetWidth / 2) + 'px';
-                popup.style.top = (rect.top - 40 + window.scrollY) + 'px';
-                popup.style.display = 'block';
-            } else {
-                popup.style.display = 'none';
-            }
+                if (text.length > 0 && text.length <= 100) {
+                    selectedText = text;
+                    const range = selection.getRangeAt(0);
+                    const rect = range.getBoundingClientRect();
+                    
+                    // Position popup above the selection
+                    popup.style.left = Math.max(10, rect.left + rect.width / 2 - 75) + 'px';
+                    popup.style.top = (rect.top - 50 + window.scrollY) + 'px';
+                    popup.style.display = 'block';
+                    popup.textContent = 'Go to "' + text + '"';
+                } else {
+                    popup.style.display = 'none';
+                }
+            }, 10);
         });
         
         // Handle popup click
@@ -408,17 +425,20 @@ func renderStreamingWikiPage(w http.ResponseWriter, title string) {
         
         // Hide popup when clicking elsewhere
         document.addEventListener('click', function(event) {
-            if (event.target !== popup) {
+            if (event.target !== popup && !popup.contains(event.target)) {
                 popup.style.display = 'none';
+                window.getSelection().removeAllRanges();
             }
         });
         
-        // Hide popup when selection changes
+        // Hide popup when selection changes to empty
         document.addEventListener('selectionchange', function() {
-            const selection = window.getSelection();
-            if (selection.toString().trim().length === 0) {
-                popup.style.display = 'none';
-            }
+            setTimeout(function() {
+                const selection = window.getSelection();
+                if (selection.toString().trim().length === 0) {
+                    popup.style.display = 'none';
+                }
+            }, 10);
         });
     </script>
 </body>
