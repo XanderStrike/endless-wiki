@@ -7,6 +7,7 @@ services:
     environment:
       - OLLAMA_ORIGINS=*
     restart: unless-stopped
+
     # Uncomment the following lines if you have a GPU
     # deploy:
     #   resources:
@@ -26,7 +27,8 @@ services:
       - OLLAMA_MODEL=gemma3:1b
       - PORT=8080
     depends_on:
-      - ollama
+      ollama:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
