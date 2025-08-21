@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Endless Wiki</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { color: #333; }
+        .search-box { margin: 20px 0; }
+        input[type="text"] { padding: 10px; width: 300px; font-size: 16px; }
+        button { padding: 10px 20px; font-size: 16px; background: #007cba; color: white; border: none; cursor: pointer; }
+        button:hover { background: #005a87; }
+        .examples { margin-top: 30px; }
+        .examples a { display: block; margin: 5px 0; color: #007cba; text-decoration: none; }
+        .examples a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>Welcome to Endless Wiki</h1>
+    <p>An infinite wiki powered by AI. Search for any topic and get a generated article with links to explore further.</p>
+    
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Enter any topic..." onkeypress="handleKeyPress(event)">
+        <button onclick="searchWiki()">Generate Article</button>
+    </div>
+    
+    <div class="examples">
+        <h3>Try these examples:</h3>
+        <a href="/wiki/Quantum Computing">Quantum Computing</a>
+        <a href="/wiki/Ancient Rome">Ancient Rome</a>
+        <a href="/wiki/Machine Learning">Machine Learning</a>
+        <a href="/wiki/Space Exploration">Space Exploration</a>
+        <a href="/wiki/Renaissance Art">Renaissance Art</a>
+    </div>
+    
+    <script>
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                searchWiki();
+            }
+        }
+        
+        function searchWiki() {
+            const input = document.getElementById('searchInput');
+            const topic = input.value.trim();
+            if (topic) {
+                window.location.href = '/wiki/' + encodeURIComponent(topic);
+            }
+        }
+    </script>
+</body>
+</html>

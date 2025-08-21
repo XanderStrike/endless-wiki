@@ -41,61 +41,16 @@ func main() {
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	html := `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Endless Wiki</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        h1 { color: #333; }
-        .search-box { margin: 20px 0; }
-        input[type="text"] { padding: 10px; width: 300px; font-size: 16px; }
-        button { padding: 10px 20px; font-size: 16px; background: #007cba; color: white; border: none; cursor: pointer; }
-        button:hover { background: #005a87; }
-        .examples { margin-top: 30px; }
-        .examples a { display: block; margin: 5px 0; color: #007cba; text-decoration: none; }
-        .examples a:hover { text-decoration: underline; }
-    </style>
-</head>
-<body>
-    <h1>Welcome to Endless Wiki</h1>
-    <p>An infinite wiki powered by AI. Search for any topic and get a generated article with links to explore further.</p>
-    
-    <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Enter any topic..." onkeypress="handleKeyPress(event)">
-        <button onclick="searchWiki()">Generate Article</button>
-    </div>
-    
-    <div class="examples">
-        <h3>Try these examples:</h3>
-        <a href="/wiki/Quantum Computing">Quantum Computing</a>
-        <a href="/wiki/Ancient Rome">Ancient Rome</a>
-        <a href="/wiki/Machine Learning">Machine Learning</a>
-        <a href="/wiki/Space Exploration">Space Exploration</a>
-        <a href="/wiki/Renaissance Art">Renaissance Art</a>
-    </div>
-    
-    <script>
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                searchWiki();
-            }
-        }
-        
-        function searchWiki() {
-            const input = document.getElementById('searchInput');
-            const topic = input.value.trim();
-            if (topic) {
-                window.location.href = '/wiki/' + encodeURIComponent(topic);
-            }
-        }
-    </script>
-</body>
-</html>`
+	tmpl, err := template.ParseFiles("templates/home.html")
+	if err != nil {
+		http.Error(w, "Template error", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(html))
+	if err := tmpl.Execute(w, nil); err != nil {
+		log.Printf("Template execution error: %v", err)
+	}
 }
 
 func wikiHandler(w http.ResponseWriter, r *http.Request) {
@@ -245,205 +200,7 @@ func formatPlainTextToHTML(content string) string {
 }
 
 func renderStreamingWikiPage(w http.ResponseWriter, title string) {
-	tmpl := `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{{.Title}} - Endless Wiki</title>
-    <style>
-        body { 
-            font-family: Georgia, serif; 
-            max-width: 900px; 
-            margin: 0 auto; 
-            padding: 20px; 
-            line-height: 1.6;
-        }
-        .header { 
-            border-bottom: 1px solid #ccc; 
-            margin-bottom: 20px; 
-            padding-bottom: 10px;
-        }
-        .header h1 { 
-            margin: 0; 
-            color: #333; 
-        }
-        .nav { 
-            margin-bottom: 20px; 
-        }
-        .nav a { 
-            color: #007cba; 
-            text-decoration: none; 
-            margin-right: 15px;
-        }
-        .nav a:hover { 
-            text-decoration: underline; 
-        }
-        .content { 
-            font-size: 16px; 
-        }
-        .content h1, .content h2, .content h3 { 
-            color: #333; 
-            border-bottom: 1px solid #eee; 
-            padding-bottom: 5px;
-        }
-        .content a { 
-            color: #007cba; 
-            text-decoration: none; 
-        }
-        .content a:hover { 
-            text-decoration: underline; 
-        }
-        .content p { 
-            margin-bottom: 15px; 
-        }
-        .content ul, .content ol { 
-            margin-bottom: 15px; 
-        }
-        .loading { 
-            color: #666; 
-            font-style: italic; 
-        }
-        .loading::after {
-            content: '';
-            animation: dots 1.5s steps(5, end) infinite;
-        }
-        @keyframes dots {
-            0%, 20% { content: ''; }
-            40% { content: '.'; }
-            60% { content: '..'; }
-            80%, 100% { content: '...'; }
-        }
-        .selection-popup {
-            position: absolute;
-            background: #007cba;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 14px;
-            cursor: pointer;
-            z-index: 1000;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            display: none;
-            white-space: nowrap;
-            max-width: 300px;
-            text-overflow: ellipsis;
-            overflow: hidden;
-        }
-        .selection-popup:hover {
-            background: #005a87;
-        }
-        .selection-popup::before {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border: 5px solid transparent;
-            border-top-color: #007cba;
-        }
-        .content {
-            user-select: text;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>{{.Title}}</h1>
-    </div>
-    
-    <div class="nav">
-        <a href="/">← Home</a>
-        <a href="javascript:history.back()">← Back</a>
-    </div>
-    
-    <div class="content" id="content">
-        <div class="loading">Generating article</div>
-    </div>
-    
-    <div id="selectionPopup" class="selection-popup">
-        Go to article →
-    </div>
-    
-    <script>
-        const eventSource = new EventSource('/stream/{{.Title}}');
-        const contentDiv = document.getElementById('content');
-        const popup = document.getElementById('selectionPopup');
-        let selectedText = '';
-        
-        eventSource.onmessage = function(event) {
-            // Handle default messages
-        };
-        
-        eventSource.addEventListener('content', function(event) {
-            const content = event.data.replace(/\\n/g, '\n');
-            contentDiv.innerHTML = content;
-        });
-        
-        eventSource.addEventListener('complete', function(event) {
-            eventSource.close();
-        });
-        
-        eventSource.addEventListener('error', function(event) {
-            contentDiv.innerHTML = '<p style="color: red;">Error generating article. Please try again.</p>';
-            eventSource.close();
-        });
-        
-        eventSource.onerror = function(event) {
-            contentDiv.innerHTML = '<p style="color: red;">Connection error. Please try again.</p>';
-            eventSource.close();
-        };
-        
-        // Handle text selection
-        document.addEventListener('mouseup', function(event) {
-            setTimeout(function() {
-                const selection = window.getSelection();
-                const text = selection.toString().trim();
-                
-                if (text.length > 0 && text.length <= 100) {
-                    selectedText = text;
-                    const range = selection.getRangeAt(0);
-                    const rect = range.getBoundingClientRect();
-                    
-                    // Position popup above the selection
-                    popup.style.left = Math.max(10, rect.left + rect.width / 2 - 75) + 'px';
-                    popup.style.top = (rect.top - 50 + window.scrollY) + 'px';
-                    popup.style.display = 'block';
-                    popup.textContent = 'Go to "' + text + '"';
-                } else {
-                    popup.style.display = 'none';
-                }
-            }, 10);
-        });
-        
-        // Handle popup click
-        popup.addEventListener('click', function() {
-            if (selectedText) {
-                window.location.href = '/wiki/' + encodeURIComponent(selectedText);
-            }
-        });
-        
-        // Hide popup when clicking elsewhere
-        document.addEventListener('click', function(event) {
-            if (event.target !== popup && !popup.contains(event.target)) {
-                popup.style.display = 'none';
-                window.getSelection().removeAllRanges();
-            }
-        });
-        
-        // Hide popup when selection changes to empty
-        document.addEventListener('selectionchange', function() {
-            setTimeout(function() {
-                const selection = window.getSelection();
-                if (selection.toString().trim().length === 0) {
-                    popup.style.display = 'none';
-                }
-            }, 10);
-        });
-    </script>
-</body>
-</html>`
-
-	t, err := template.New("wiki").Parse(tmpl)
+	tmpl, err := template.ParseFiles("templates/wiki.html")
 	if err != nil {
 		http.Error(w, "Template error", http.StatusInternalServerError)
 		return
@@ -456,7 +213,7 @@ func renderStreamingWikiPage(w http.ResponseWriter, title string) {
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	if err := t.Execute(w, data); err != nil {
+	if err := tmpl.Execute(w, data); err != nil {
 		log.Printf("Template execution error: %v", err)
 	}
 }
