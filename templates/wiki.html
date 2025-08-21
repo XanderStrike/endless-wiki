@@ -147,6 +147,11 @@
         
         // Handle text selection
         document.addEventListener('mouseup', function(event) {
+            // Don't interfere if clicking on the popup
+            if (event.target === popup || popup.contains(event.target)) {
+                return;
+            }
+            
             setTimeout(function() {
                 const selection = window.getSelection();
                 const text = selection.toString().trim();
@@ -164,7 +169,7 @@
                 } else {
                     popup.style.display = 'none';
                 }
-            }, 10);
+            }, 100);
         });
         
         // Handle popup click
@@ -178,18 +183,21 @@
         document.addEventListener('click', function(event) {
             if (event.target !== popup && !popup.contains(event.target)) {
                 popup.style.display = 'none';
-                window.getSelection().removeAllRanges();
+                // Don't clear selection immediately, let it persist briefly
             }
         });
         
-        // Hide popup when selection changes to empty
+        // Hide popup when selection changes to empty (but with delay to allow popup clicks)
         document.addEventListener('selectionchange', function() {
             setTimeout(function() {
                 const selection = window.getSelection();
-                if (selection.toString().trim().length === 0) {
-                    popup.style.display = 'none';
+                if (selection.toString().trim().length === 0 && popup.style.display === 'block') {
+                    // Only hide if we're not hovering over the popup
+                    if (!popup.matches(':hover')) {
+                        popup.style.display = 'none';
+                    }
                 }
-            }, 10);
+            }, 200);
         });
     </script>
 </body>
