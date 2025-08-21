@@ -105,14 +105,15 @@ func generateArticleStream(articleName string, w http.ResponseWriter) error {
 
 	log.Printf("Generating article '%s' using model '%s' at host '%s'", articleName, ollamaModel, ollamaHost)
 
-	prompt := fmt.Sprintf(`You are a wiki article generator. Generate a short informative article about "%s" in markdown. 
+	prompt := fmt.Sprintf(`You are a wiki article generator. Generate a comprehensive informative article about "%s" in markdown format. 
 
 Requirements:
-- Write like wikipedia
-- Include an appropriate number of sections with clear section headers
-- Make the article brief
-- Use proper paragraph structure
-- Provide only the text of the article, no followup questions
+- Write like wikipedia in an encyclopedic style
+- Include multiple sections with clear markdown headers (## Section Name)
+- Use proper markdown formatting including **bold**, *italic*, lists, etc.
+- Include relevant subsections where appropriate
+- Make the article detailed and informative
+- Provide only the markdown text of the article, no followup questions
 
 Generate the article now:`, articleName)
 
@@ -145,11 +146,9 @@ Generate the article now:`, articleName)
 		if ollamaResp.Response != "" {
 			fullContent.WriteString(ollamaResp.Response)
 
-			// Convert plain text to HTML with proper formatting
-			htmlContent := formatPlainTextToHTML(fullContent.String())
-
-			// Send the updated content via SSE
-			fmt.Fprintf(w, "event: content\ndata: %s\n\n", strings.ReplaceAll(htmlContent, "\n", "\\n"))
+			// Send the raw markdown content via SSE (will be parsed by frontend)
+			markdownContent := fullContent.String()
+			fmt.Fprintf(w, "event: content\ndata: %s\n\n", strings.ReplaceAll(markdownContent, "\n", "\\n"))
 
 			// Flush the response
 			if flusher, ok := w.(http.Flusher); ok {
@@ -165,39 +164,6 @@ Generate the article now:`, articleName)
 	return nil
 }
 
-func formatPlainTextToHTML(content string) string {
-	// Split content into lines to preserve structure
-	lines := strings.Split(content, "\n")
-	var result strings.Builder
-
-	for i, line := range lines {
-		if i > 0 {
-			result.WriteString("\n")
-		}
-
-		// Skip empty lines
-		if strings.TrimSpace(line) == "" {
-			result.WriteString("<br>")
-			continue
-		}
-
-		// Check if this looks like a header (simple heuristic)
-		trimmed := strings.TrimSpace(line)
-		if len(trimmed) > 0 && (strings.HasSuffix(trimmed, ":") ||
-			(len(trimmed) < 100 && !strings.Contains(trimmed, ".") &&
-				strings.ToUpper(trimmed[:1]) == trimmed[:1])) {
-			result.WriteString("<h3>")
-			result.WriteString(template.HTMLEscapeString(line))
-			result.WriteString("</h3>")
-		} else {
-			result.WriteString("<p>")
-			result.WriteString(template.HTMLEscapeString(line))
-			result.WriteString("</p>")
-		}
-	}
-
-	return result.String()
-}
 
 func renderStreamingWikiPage(w http.ResponseWriter, title string) {
 	tmpl, err := template.ParseFiles("templates/wiki.html")

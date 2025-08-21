@@ -116,6 +116,7 @@
         Go to article →
     </div>
     
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
         const eventSource = new EventSource('/stream/{{.Title}}');
         const contentDiv = document.getElementById('content');
@@ -128,7 +129,9 @@
         
         eventSource.addEventListener('content', function(event) {
             const content = event.data.replace(/\\n/g, '\n');
-            contentDiv.innerHTML = content;
+            // Parse markdown and render as HTML
+            const htmlContent = marked.parse(content);
+            contentDiv.innerHTML = htmlContent;
         });
         
         eventSource.addEventListener('complete', function(event) {
