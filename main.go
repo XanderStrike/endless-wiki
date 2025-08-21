@@ -149,6 +149,8 @@ func generateArticleStream(articleName string, w http.ResponseWriter) error {
 		ollamaModel = "llama2"
 	}
 	
+	log.Printf("Generating article '%s' using model '%s' at host '%s'", articleName, ollamaModel, ollamaHost)
+	
 	prompt := fmt.Sprintf(`You are a wiki article generator. Generate a comprehensive, informative article about "%s" in markdown format. 
 
 Requirements:
