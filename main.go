@@ -191,8 +191,8 @@ Generate the article now:`, articleName)
 		if ollamaResp.Response != "" {
 			fullContent.WriteString(ollamaResp.Response)
 			
-			// Convert plain text to HTML with every word as a link
-			htmlContent := makeEveryWordClickable(fullContent.String())
+			// Convert plain text to HTML with proper formatting
+			htmlContent := formatPlainTextToHTML(fullContent.String())
 			
 			// Send the updated content via SSE
 			fmt.Fprintf(w, "event: content\ndata: %s\n\n", strings.ReplaceAll(htmlContent, "\n", "\\n"))
@@ -211,7 +211,7 @@ Generate the article now:`, articleName)
 	return nil
 }
 
-func makeEveryWordClickable(content string) string {
+func formatPlainTextToHTML(content string) string {
 	// Split content into lines to preserve structure
 	lines := strings.Split(content, "\n")
 	var result strings.Builder
@@ -233,74 +233,16 @@ func makeEveryWordClickable(content string) string {
 			(len(trimmed) < 100 && !strings.Contains(trimmed, ".") && 
 			 strings.ToUpper(trimmed[:1]) == trimmed[:1])) {
 			result.WriteString("<h3>")
-			result.WriteString(makeWordsClickable(line))
+			result.WriteString(template.HTMLEscapeString(line))
 			result.WriteString("</h3>")
 		} else {
 			result.WriteString("<p>")
-			result.WriteString(makeWordsClickable(line))
+			result.WriteString(template.HTMLEscapeString(line))
 			result.WriteString("</p>")
 		}
 	}
 	
 	return result.String()
-}
-
-func makeWordsClickable(text string) string {
-	// Split text into words while preserving punctuation
-	words := strings.Fields(text)
-	var result strings.Builder
-	
-	for i, word := range words {
-		if i > 0 {
-			result.WriteString(" ")
-		}
-		
-		// Extract the actual word from punctuation
-		cleanWord := strings.Trim(word, ".,!?;:()[]{}\"'")
-		
-		// Skip very short words and common words that don't make good articles
-		if len(cleanWord) <= 2 || isCommonWord(cleanWord) {
-			result.WriteString(word)
-		} else {
-			// Get the prefix and suffix punctuation
-			prefix := word[:len(word)-len(strings.TrimLeft(word, ".,!?;:()[]{}\"'"))]
-			suffix := word[len(strings.TrimRight(word, ".,!?;:()[]{}\"'")):]
-			
-			result.WriteString(prefix)
-			result.WriteString(fmt.Sprintf(`<a href="/wiki/%s">%s</a>`, cleanWord, cleanWord))
-			result.WriteString(suffix)
-		}
-	}
-	
-	return result.String()
-}
-
-func isCommonWord(word string) bool {
-	commonWords := map[string]bool{
-		"the": true, "a": true, "an": true, "and": true, "or": true, "but": true,
-		"in": true, "on": true, "at": true, "to": true, "for": true, "of": true,
-		"with": true, "by": true, "is": true, "are": true, "was": true, "were": true,
-		"be": true, "been": true, "have": true, "has": true, "had": true, "do": true,
-		"does": true, "did": true, "will": true, "would": true, "could": true, "should": true,
-		"may": true, "might": true, "can": true, "must": true, "shall": true,
-		"this": true, "that": true, "these": true, "those": true, "it": true, "its": true,
-		"he": true, "she": true, "they": true, "we": true, "you": true, "i": true,
-		"me": true, "him": true, "her": true, "them": true, "us": true, "my": true,
-		"your": true, "his": true, "their": true, "our": true,
-		"as": true, "so": true, "if": true, "when": true, "where": true, "why": true,
-		"how": true, "what": true, "who": true, "which": true, "than": true, "then": true,
-		"now": true, "here": true, "there": true, "up": true, "down": true, "out": true,
-		"off": true, "over": true, "under": true, "again": true, "further": true,
-		"once": true, "more": true, "most": true, "other": true, "some": true, "any": true,
-		"each": true, "few": true, "all": true, "both": true, "either": true, "neither": true,
-		"not": true, "no": true, "nor": true, "too": true, "very": true, "just": true,
-		"only": true, "own": true, "same": true, "such": true, "into": true, "from": true,
-		"about": true, "after": true, "before": true, "during": true, "between": true,
-		"through": true, "above": true, "below": true, "because": true, "until": true,
-		"while": true, "since": true, "although": true, "though": true, "unless": true,
-	}
-	
-	return commonWords[strings.ToLower(word)]
 }
 
 func renderStreamingWikiPage(w http.ResponseWriter, title string) {
@@ -372,6 +314,24 @@ func renderStreamingWikiPage(w http.ResponseWriter, title string) {
             60% { content: '..'; }
             80%, 100% { content: '...'; }
         }
+        .selection-popup {
+            position: absolute;
+            background: #007cba;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            display: none;
+        }
+        .selection-popup:hover {
+            background: #005a87;
+        }
+        .content {
+            user-select: text;
+        }
     </style>
 </head>
 <body>
@@ -388,21 +348,19 @@ func renderStreamingWikiPage(w http.ResponseWriter, title string) {
         <div class="loading">Generating article</div>
     </div>
     
+    <div id="selectionPopup" class="selection-popup">
+        Go to article →
+    </div>
+    
     <script>
         const eventSource = new EventSource('/stream/{{.Title}}');
         const contentDiv = document.getElementById('content');
+        const popup = document.getElementById('selectionPopup');
+        let selectedText = '';
         
         eventSource.onmessage = function(event) {
             // Handle default messages
         };
-        
-        // Use event delegation to handle clicks on dynamically added links
-        document.addEventListener('click', function(event) {
-            if (event.target.tagName === 'A' && event.target.href && event.target.href.includes('/wiki/')) {
-                event.preventDefault();
-                window.location.href = event.target.href;
-            }
-        });
         
         eventSource.addEventListener('content', function(event) {
             const content = event.data.replace(/\\n/g, '\n');
@@ -422,6 +380,46 @@ func renderStreamingWikiPage(w http.ResponseWriter, title string) {
             contentDiv.innerHTML = '<p style="color: red;">Connection error. Please try again.</p>';
             eventSource.close();
         };
+        
+        // Handle text selection
+        document.addEventListener('mouseup', function(event) {
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
+            
+            if (text.length > 0 && text.length <= 100) {
+                selectedText = text;
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                
+                popup.style.left = (rect.left + rect.width / 2 - popup.offsetWidth / 2) + 'px';
+                popup.style.top = (rect.top - 40 + window.scrollY) + 'px';
+                popup.style.display = 'block';
+            } else {
+                popup.style.display = 'none';
+            }
+        });
+        
+        // Handle popup click
+        popup.addEventListener('click', function() {
+            if (selectedText) {
+                window.location.href = '/wiki/' + encodeURIComponent(selectedText);
+            }
+        });
+        
+        // Hide popup when clicking elsewhere
+        document.addEventListener('click', function(event) {
+            if (event.target !== popup) {
+                popup.style.display = 'none';
+            }
+        });
+        
+        // Hide popup when selection changes
+        document.addEventListener('selectionchange', function() {
+            const selection = window.getSelection();
+            if (selection.toString().trim().length === 0) {
+                popup.style.display = 'none';
+            }
+        });
     </script>
 </body>
 </html>`
