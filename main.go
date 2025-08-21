@@ -30,6 +30,7 @@ func main() {
 	
 	r.HandleFunc("/", homeHandler).Methods("GET")
 	r.HandleFunc("/wiki/{article}", wikiHandler).Methods("GET")
+	r.HandleFunc("/stream/{article}", streamHandler).Methods("GET")
 	
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -107,25 +108,37 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Generate article content using Ollama
-	content, err := generateArticle(articleName)
-	if err != nil {
-		log.Printf("Error generating article: %v", err)
-		http.Error(w, "Failed to generate article", http.StatusInternalServerError)
+	// Render the streaming page template
+	renderStreamingWikiPage(w, articleName)
+}
+
+func streamHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	articleName := vars["article"]
+	
+	if articleName == "" {
+		http.Error(w, "Article name is required", http.StatusBadRequest)
 		return
 	}
 	
-	// Convert markdown to HTML
-	htmlContent := blackfriday.Run([]byte(content))
+	// Set headers for Server-Sent Events
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	
-	// Process links to point to our wiki
-	processedContent := processWikiLinks(string(htmlContent))
+	// Generate article content using Ollama with streaming
+	err := generateArticleStream(articleName, w)
+	if err != nil {
+		log.Printf("Error generating article: %v", err)
+		fmt.Fprintf(w, "event: error\ndata: Failed to generate article\n\n")
+	}
 	
-	// Render the page
-	renderWikiPage(w, articleName, processedContent)
+	// Send completion event
+	fmt.Fprintf(w, "event: complete\ndata: done\n\n")
 }
 
-func generateArticle(articleName string) (string, error) {
+func generateArticleStream(articleName string, w http.ResponseWriter) error {
 	ollamaHost := os.Getenv("OLLAMA_HOST")
 	if ollamaHost == "" {
 		ollamaHost = "http://localhost:11434"
@@ -151,26 +164,51 @@ Generate the article now:`, articleName)
 	reqBody := OllamaRequest{
 		Model:  ollamaModel,
 		Prompt: prompt,
-		Stream: false,
+		Stream: true,
 	}
 	
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", err
+		return err
 	}
 	
 	resp, err := http.Post(ollamaHost+"/api/generate", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer resp.Body.Close()
 	
-	var ollamaResp OllamaResponse
-	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
-		return "", err
+	decoder := json.NewDecoder(resp.Body)
+	var fullContent strings.Builder
+	
+	for {
+		var ollamaResp OllamaResponse
+		if err := decoder.Decode(&ollamaResp); err != nil {
+			break
+		}
+		
+		if ollamaResp.Response != "" {
+			fullContent.WriteString(ollamaResp.Response)
+			
+			// Convert the accumulated markdown to HTML
+			htmlContent := blackfriday.Run([]byte(fullContent.String()))
+			processedContent := processWikiLinks(string(htmlContent))
+			
+			// Send the updated content via SSE
+			fmt.Fprintf(w, "event: content\ndata: %s\n\n", strings.ReplaceAll(processedContent, "\n", "\\n"))
+			
+			// Flush the response
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+		}
+		
+		if ollamaResp.Done {
+			break
+		}
 	}
 	
-	return ollamaResp.Response, nil
+	return nil
 }
 
 func processWikiLinks(content string) string {
@@ -180,7 +218,7 @@ func processWikiLinks(content string) string {
 	return content
 }
 
-func renderWikiPage(w http.ResponseWriter, title, content string) {
+func renderStreamingWikiPage(w http.ResponseWriter, title string) {
 	tmpl := `
 <!DOCTYPE html>
 <html>
@@ -235,6 +273,20 @@ func renderWikiPage(w http.ResponseWriter, title, content string) {
         .content ul, .content ol { 
             margin-bottom: 15px; 
         }
+        .loading { 
+            color: #666; 
+            font-style: italic; 
+        }
+        .loading::after {
+            content: '';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
     </style>
 </head>
 <body>
@@ -247,9 +299,37 @@ func renderWikiPage(w http.ResponseWriter, title, content string) {
         <a href="javascript:history.back()">← Back</a>
     </div>
     
-    <div class="content">
-        {{.Content}}
+    <div class="content" id="content">
+        <div class="loading">Generating article</div>
     </div>
+    
+    <script>
+        const eventSource = new EventSource('/stream/{{.Title}}');
+        const contentDiv = document.getElementById('content');
+        
+        eventSource.onmessage = function(event) {
+            // Handle default messages
+        };
+        
+        eventSource.addEventListener('content', function(event) {
+            const content = event.data.replace(/\\n/g, '\n');
+            contentDiv.innerHTML = content;
+        });
+        
+        eventSource.addEventListener('complete', function(event) {
+            eventSource.close();
+        });
+        
+        eventSource.addEventListener('error', function(event) {
+            contentDiv.innerHTML = '<p style="color: red;">Error generating article. Please try again.</p>';
+            eventSource.close();
+        });
+        
+        eventSource.onerror = function(event) {
+            contentDiv.innerHTML = '<p style="color: red;">Connection error. Please try again.</p>';
+            eventSource.close();
+        };
+    </script>
 </body>
 </html>`
 	
@@ -260,11 +340,9 @@ func renderWikiPage(w http.ResponseWriter, title, content string) {
 	}
 	
 	data := struct {
-		Title   string
-		Content template.HTML
+		Title string
 	}{
-		Title:   title,
-		Content: template.HTML(content),
+		Title: title,
 	}
 	
 	w.Header().Set("Content-Type", "text/html")
