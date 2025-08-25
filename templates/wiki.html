@@ -3,57 +3,57 @@
 <head>
     <title>{{.Title}} - Endless Wiki</title>
     <style>
-        body { 
-            font-family: Georgia, serif; 
-            max-width: 900px; 
-            margin: 0 auto; 
-            padding: 20px; 
+        body {
+            font-family: Georgia, serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
             line-height: 1.6;
         }
-        .header { 
-            border-bottom: 1px solid #ccc; 
-            margin-bottom: 20px; 
+        .header {
+            border-bottom: 1px solid #ccc;
+            margin-bottom: 20px;
             padding-bottom: 10px;
         }
-        .header h1 { 
-            margin: 0; 
-            color: #333; 
+        .header h1 {
+            margin: 0;
+            color: #333;
         }
-        .nav { 
-            margin-bottom: 20px; 
+        .nav {
+            margin-bottom: 20px;
         }
-        .nav a { 
-            color: #007cba; 
-            text-decoration: none; 
+        .nav a {
+            color: #007cba;
+            text-decoration: none;
             margin-right: 15px;
         }
-        .nav a:hover { 
-            text-decoration: underline; 
+        .nav a:hover {
+            text-decoration: underline;
         }
-        .content { 
-            font-size: 16px; 
+        .content {
+            font-size: 16px;
         }
-        .content h1, .content h2, .content h3 { 
-            color: #333; 
-            border-bottom: 1px solid #eee; 
+        .content h1, .content h2, .content h3 {
+            color: #333;
+            border-bottom: 1px solid #eee;
             padding-bottom: 5px;
         }
-        .content a { 
-            color: #007cba; 
-            text-decoration: none; 
+        .content a {
+            color: #007cba;
+            text-decoration: none;
         }
-        .content a:hover { 
-            text-decoration: underline; 
+        .content a:hover {
+            text-decoration: underline;
         }
-        .content p { 
-            margin-bottom: 15px; 
+        .content p {
+            margin-bottom: 15px;
         }
-        .content ul, .content ol { 
-            margin-bottom: 15px; 
+        .content ul, .content ol {
+            margin-bottom: 15px;
         }
-        .loading { 
-            color: #666; 
-            font-style: italic; 
+        .loading {
+            color: #666;
+            font-style: italic;
         }
         .loading::after {
             content: '';
@@ -73,13 +73,14 @@
             border-radius: 4px;
             font-size: 14px;
             cursor: pointer;
-            z-index: 1000;
+            z-index: 10000;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             display: none;
             white-space: nowrap;
-            max-width: 300px;
+            max-width: 500px;
             text-overflow: ellipsis;
             overflow: hidden;
+            pointer-events: auto;
         }
         .selection-popup:hover {
             background: #005a87;
@@ -104,85 +105,218 @@
         <a href="javascript:history.back()">Back</a>
         Select any text to make it the title of your next article (once generation completes).
     </div>
-    
+
     <div class="content" id="content">
         <div class="loading">Generating article</div>
     </div>
-    
+
     <div id="selectionPopup" class="selection-popup">
         Go to article →
     </div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
+        console.log('JavaScript loading...');
+
         const eventSource = new EventSource('/stream/{{.Title}}');
         const contentDiv = document.getElementById('content');
         const popup = document.getElementById('selectionPopup');
         let selectedText = '';
-        
+
+        console.log('Elements found:', {
+            eventSource: !!eventSource,
+            contentDiv: !!contentDiv,
+            popup: !!popup
+        });
+
+        // Add a timeout to show progress
+        let hasReceivedContent = false;
+        setTimeout(function() {
+            if (!hasReceivedContent) {
+                contentDiv.innerHTML = '<div class="loading">Still generating... AI is thinking...</div>';
+            }
+        }, 5000);
+
         eventSource.onmessage = function(event) {
             // Handle default messages
         };
-        
+
         eventSource.addEventListener('content', function(event) {
+            hasReceivedContent = true;
             let content = event.data.replace(/\\n/g, '\n');
-            
+
             // Strip out markdown code fences if they appear at the start
             content = content.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '');
-            
+
             // Parse markdown and render as HTML
             const htmlContent = marked.parse(content);
             contentDiv.innerHTML = htmlContent;
-        });
-        
-        eventSource.addEventListener('complete', function(event) {
-            eventSource.close();
-        });
-        
-        eventSource.addEventListener('error', function(event) {
-            contentDiv.innerHTML = '<p style="color: red;">Error generating article. Please try again.</p>';
-            eventSource.close();
-        });
-        
-        eventSource.onerror = function(event) {
-            contentDiv.innerHTML = '<p style="color: red;">Connection error. Please try again.</p>';
-            eventSource.close();
-        };
-        
-        // Handle text selection
-        document.addEventListener('mouseup', function(event) {
-            // Don't interfere if clicking on the popup
-            if (event.target === popup || popup.contains(event.target)) {
-                return;
-            }
-            
+
+            console.log('Content loaded, length:', content.length, 'characters');
+            console.log('HTML content length:', htmlContent.length);
+
+            // Re-attach event listeners after content is loaded
             setTimeout(function() {
-                const selection = window.getSelection();
-                const text = selection.toString().trim();
-                
-                if (text.length > 0 && text.length <= 100) {
-                    selectedText = text;
-                    const range = selection.getRangeAt(0);
-                    const rect = range.getBoundingClientRect();
-                    
-                    // Position popup above the selection
-                    popup.style.left = Math.max(10, rect.left + rect.width / 2 - 75) + 'px';
-                    popup.style.top = (rect.top - 50 + window.scrollY) + 'px';
-                    popup.style.display = 'block';
-                    popup.textContent = 'Go to "' + text + '"';
+                console.log('Re-attaching event listeners after content load');
+
+                // Add debugging to the new content
+                const newContentDiv = document.getElementById('content');
+                if (newContentDiv) {
+                    newContentDiv.addEventListener('mousedown', function(e) {
+                        console.log('NEW CONTENT: Mousedown detected at:', e.clientX, e.clientY);
+                    });
+
+                    newContentDiv.addEventListener('mouseup', function(e) {
+                        console.log('NEW CONTENT: Mouseup detected at:', e.clientX, e.clientY);
+                    });
+
+                    console.log('Event listeners attached to new content');
+                }
+
+                // Add a test to verify selection is working
+                console.log('Testing selection capability...');
+                const testSelection = window.getSelection();
+                if (testSelection) {
+                    console.log('Selection API available');
                 } else {
-                    popup.style.display = 'none';
+                    console.log('Selection API not available');
                 }
             }, 100);
         });
-        
+
+        eventSource.addEventListener('complete', function(event) {
+            eventSource.close();
+        });
+
+        eventSource.addEventListener('error', function(event) {
+            console.log('EventSource error:', event);
+            contentDiv.innerHTML = '<p style="color: red;">Error generating article. Please try again.</p>';
+            eventSource.close();
+        });
+
+        eventSource.onerror = function(event) {
+            console.log('EventSource onerror:', event, 'ReadyState:', eventSource.readyState);
+            contentDiv.innerHTML = '<p style="color: red;">Connection error. Please try again.</p>';
+            eventSource.close();
+        });
+
+        // Debug: Log all mouse events on content
+        contentDiv.addEventListener('mousedown', function(e) {
+            console.log('Content mousedown at:', e.clientX, e.clientY);
+        });
+
+        contentDiv.addEventListener('mouseup', function(e) {
+            console.log('Content mouseup at:', e.clientX, e.clientY);
+        });
+
+        // Handle text selection
+        document.addEventListener('mouseup', function(event) {
+            console.log('Document mouseup event fired, target:', event.target.tagName, event.target.className);
+
+            // Don't interfere if clicking on the popup
+            if (event.target === popup || popup.contains(event.target)) {
+                console.log('Clicked on popup, returning');
+                return;
+            }
+
+            // Check selection immediately
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
+            console.log('Immediate selection check:', text.length, 'characters');
+
+            setTimeout(function() {
+                try {
+                    const selection = window.getSelection();
+                    const text = selection.toString().trim();
+
+                    console.log('Delayed selection check:', text.length, 'characters');
+                    if (text.length > 0) {
+                        console.log('First 100 chars:', text.substring(0, 100));
+                    }
+
+                    if (text.length > 0 && text.length <= 10000) {
+                        selectedText = text;
+                        console.log('Selection meets criteria, showing popup');
+
+                        if (selection.rangeCount > 0) {
+                            const range = selection.getRangeAt(0);
+                            const rect = range.getBoundingClientRect();
+
+                            console.log('Selection rect:', {
+                                left: rect.left,
+                                top: rect.top,
+                                width: rect.width,
+                                height: rect.height,
+                                right: rect.right,
+                                bottom: rect.bottom
+                            });
+
+                            // Position popup above the selection, ensuring it's visible
+                            const popupWidth = 150; // Approximate width of popup
+                            const popupHeight = 40; // Approximate height of popup
+
+                            // Center horizontally over the selection, but keep within viewport
+                            let leftPos = rect.left + rect.width / 2 - popupWidth / 2;
+                            leftPos = Math.max(10, Math.min(leftPos, window.innerWidth - popupWidth - 10));
+
+                            // Position above the selection, but ensure it's not off-screen
+                            let topPos = rect.top - popupHeight - 10 + window.scrollY;
+                            if (topPos < window.scrollY + 10) {
+                                // If above would be off-screen, position below
+                                topPos = rect.bottom + 10 + window.scrollY;
+                            }
+
+                            console.log('Calculated popup position:', { leftPos, topPos });
+
+                            popup.style.left = leftPos + 'px';
+                            popup.style.top = topPos + 'px';
+                            popup.style.display = 'block';
+                            popup.style.visibility = 'visible';
+
+                            // Truncate display text if too long, but keep full text for navigation
+                            const displayText = text.length > 50 ? text.substring(0, 50) + '...' : text;
+                            popup.textContent = 'Go to "' + displayText + '"';
+
+                            console.log('Popup should be visible now at:', leftPos, topPos);
+                        } else {
+                            console.log('No range in selection');
+                            popup.style.display = 'none';
+                        }
+                    } else {
+                        console.log('Not showing popup - text length:', text.length);
+                        popup.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('Error in text selection handler:', error);
+                }
+            }, 100);
+        });
+
+        // Add selectionchange listener for debugging
+        document.addEventListener('selectionchange', function() {
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
+            console.log('Selection changed:', text.length, 'characters');
+
+            // Debug: If selection is large and we're not showing popup, force it
+            if (text.length > 100 && popup.style.display === 'none') {
+                console.log('FORCE SHOWING POPUP for large selection!');
+                selectedText = text;
+                popup.style.display = 'block';
+                popup.style.visibility = 'visible';
+                popup.style.left = '50px';
+                popup.style.top = '100px';
+                popup.textContent = 'Go to "' + text.substring(0, 30) + '..."';
+            }
+        });
+
         // Handle popup click
         popup.addEventListener('click', function() {
             if (selectedText) {
                 window.location.href = '/wiki/' + encodeURIComponent(selectedText);
             }
         });
-        
+
         // Hide popup when clicking elsewhere
         document.addEventListener('click', function(event) {
             if (event.target !== popup && !popup.contains(event.target)) {
@@ -190,33 +324,42 @@
                 // Don't clear selection immediately, let it persist briefly
             }
         });
-        
+
         // Hide popup when selection changes to empty (but with delay to allow popup clicks)
         document.addEventListener('selectionchange', function() {
             setTimeout(function() {
                 const selection = window.getSelection();
                 if (selection.toString().trim().length === 0 && popup.style.display === 'block') {
-                    // Only hide if we're not hovering over the popup
-                    if (!popup.matches(':hover')) {
+                    // Only hide if we're not hovering over the popup and not clicking on it
+                    if (!popup.matches(':hover') && !popup.matches(':active')) {
                         popup.style.display = 'none';
                     }
                 }
             }, 200);
         });
-        
+
+        // Additional safeguard: don't hide popup if user is interacting with it
+        popup.addEventListener('mouseenter', function() {
+            console.log('Mouse entered popup');
+        });
+
+        popup.addEventListener('mouseleave', function() {
+            console.log('Mouse left popup');
+        });
+
         // Stop article generation when user navigates away
         window.addEventListener('beforeunload', function() {
             if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
                 eventSource.close();
             }
         });
-        
-        // Also stop generation when page becomes hidden (tab switching, etc.)
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden && eventSource && eventSource.readyState !== EventSource.CLOSED) {
-                eventSource.close();
-            }
-        });
+
+        // Don't stop generation when page becomes hidden - this was causing disconnections
+        // document.addEventListener('visibilitychange', function() {
+        //     if (document.hidden && eventSource && eventSource.readyState !== EventSource.CLOSED) {
+        //         eventSource.close();
+        //     }
+        // });
     </script>
 </body>
 </html>
