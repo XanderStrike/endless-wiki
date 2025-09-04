@@ -10,7 +10,7 @@ If you _actually_ want to poke around on a local encyclopedia full of true infor
 
 ## usage
 
-The docker-compose.yml is everything you need including an ollama instance. Adjust the OLLAMA_MODEL to your preference or stick with the recommendation.
+The [docker-compose.yml](./docker-compose.yml) is everything you need including an ollama instance. Adjust the OLLAMA_MODEL to your preference or stick with the recommendation.
 
 ## demo
 
