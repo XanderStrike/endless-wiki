@@ -114,7 +114,7 @@ func generateArticleStream(ctx context.Context, articleName string, w http.Respo
 
 	ollamaModel := os.Getenv("OLLAMA_MODEL")
 	if ollamaModel == "" {
-		ollamaModel = "llama2"
+		ollamaModel = "llama3"
 	}
 
 	log.Printf("Generating article '%s' using model '%s' at host '%s'", articleName, ollamaModel, ollamaHost)
@@ -207,7 +207,7 @@ func ensureModelDownloaded() {
 
 	ollamaModel := os.Getenv("OLLAMA_MODEL")
 	if ollamaModel == "" {
-		ollamaModel = "llama2"
+		ollamaModel = "llama3"
 	}
 
 	log.Printf("Ensuring model '%s' is available at '%s'", ollamaModel, ollamaHost)

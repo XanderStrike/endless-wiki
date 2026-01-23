@@ -6,22 +6,31 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_ORIGINS=*
+      - OLLAMA_CONTEXT_LENGTH=8192
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=10m
     restart: unless-stopped
 
     # Uncomment the following lines if you have a GPU
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   endless-wiki:
     image: xanderstrike/endless-wiki:latest
     container_name: endless-wiki
     ports:
       - "8080:8080"
+    volumes:
+    - ./templates:/app/templates  # Add this line
     environment:
       - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=gemma3:1b

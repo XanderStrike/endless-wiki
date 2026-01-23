@@ -1,0 +1,146 @@
+<!-- TEST MARKER: Endless Wiki Article Page -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{.Title}} - Endless Wiki</title>
+    <style>
+        body {
+            font-family: Georgia, serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .content { font-size: 16px; user-select: text; font-family: Georgia, serif; }
+        .content h1, .content h2, .content h3, .content h4, .content h5, .content h6 {
+            font-family: Georgia, serif;
+            font-weight: bold;
+        }
+        .content p, .content li, .content div {
+            font-family: Georgia, serif;
+            line-height: 1.6;
+        }
+        .content strong, .content b {
+            font-family: Georgia, serif;
+            font-weight: bold;
+        }
+        .content em, .content i {
+            font-family: Georgia, serif;
+            font-style: italic;
+        }
+        .selection-popup {
+            position: absolute;
+            background: #007cba;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 10000;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="/">Home</a> | <a href="javascript:history.back()">Back</a>
+        <p>Select any text to make it the title of your next article (once content loads).</p>
+    </div>
+
+    <div class="content" id="content">
+        <div style="color: #666; font-style: italic;">Generating article...</div>
+    </div>
+
+    <div id="selectionPopup" class="selection-popup">Go to article →</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        console.log('Selection popup loaded successfully!');
+
+        const eventSource = new EventSource('/stream/{{.Title}}');
+        const contentDiv = document.getElementById('content');
+        const popup = document.getElementById('selectionPopup');
+        let selectedText = '';
+
+        eventSource.addEventListener('content', function(event) {
+            const content = event.data.replace(/\\n/g, '\n');
+            const htmlContent = marked.parse(content);
+            contentDiv.innerHTML = htmlContent;
+            console.log('Content loaded, ready for text selection!');
+        });
+
+        eventSource.addEventListener('complete', function(event) {
+            eventSource.close();
+        });
+
+        // Simple text selection handler
+        document.addEventListener('mouseup', function(event) {
+            if (event.target === popup || popup.contains(event.target)) return;
+
+            setTimeout(function() {
+                const selection = window.getSelection();
+                const text = selection.toString().trim();
+
+                if (text.length > 0 && text.length <= 10000) {
+                    selectedText = text;
+
+                    if (selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        const rect = range.getBoundingClientRect();
+
+                        // Simple positioning
+                        const leftPos = Math.max(10, rect.left + rect.width / 2 - 75);
+                        const topPos = rect.top - 50 + window.scrollY;
+
+                        popup.style.left = leftPos + 'px';
+                        popup.style.top = topPos + 'px';
+                        popup.style.display = 'block';
+
+                        const displayText = text.length > 30 ? text.substring(0, 30) + '...' : text;
+                        popup.textContent = 'Go to "' + displayText + '"';
+
+                        console.log('Popup shown for selection:', text.length, 'characters');
+                    }
+                }
+            }, 100);
+        });
+
+        // Force popup for large selections
+        document.addEventListener('selectionchange', function() {
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
+
+            if (text.length > 100 && popup.style.display === 'none') {
+                console.log('FORCE SHOWING POPUP for large selection!');
+                selectedText = text;
+                popup.style.display = 'block';
+                popup.style.left = '50px';
+                popup.style.top = '100px';
+                popup.textContent = 'Go to "' + text.substring(0, 30) + '..."';
+            }
+        });
+
+        popup.addEventListener('click', function() {
+            if (selectedText) {
+                // Truncate long selections to create reasonable article titles
+                let title = selectedText.trim();
+
+                // If longer than 50 characters, take first 50 and add ellipsis
+                if (title.length > 50) {
+                    title = title.substring(0, 50) + '...';
+                }
+
+                // Replace newlines and extra spaces with single spaces
+                title = title.replace(/\s+/g, ' ').trim();
+
+                window.location.href = '/wiki/' + encodeURIComponent(title);
+            }
+        });
+
+        document.addEventListener('click', function(event) {
+            if (event.target !== popup && !popup.contains(event.target)) {
+                popup.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
