@@ -44,3 +44,13 @@ https://github.com/user-attachments/assets/93e333ed-e218-4310-a9c1-836b71803897
 
   
 </details>
+
+## fork disclaimer
+
+This is a fork of [this repo](github.com/XanderStrike/endless-wiki) by XanderStrike. I have made some modifications to the original code, including:
+- GHCR as the container registry and updated docker-compose.yml
+- Multi-Language support (en, de, fr, es, it, jp, zh)
+- Saving pages as html files
+- support for encoded symbols in queries
+
+Please note that I am not the original author of the project, and I do not take credit for the original work. All credit goes to XanderStrike and their amazing vibe code.

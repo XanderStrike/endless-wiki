@@ -1,70 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>{{.Title}} - Endless Wiki</title>
+    <link rel="icon" type="image/png" sizes="192x192"  href="/static/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/static/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
     <style>
-        body { 
-            font-family: Georgia, serif; 
-            max-width: 900px; 
-            margin: 0 auto; 
-            padding: 20px; 
+        body {
+            font-family: Georgia, serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
             line-height: 1.6;
         }
-        .header { 
-            border-bottom: 1px solid #ccc; 
-            margin-bottom: 20px; 
+
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            text-decoration: none;
+            margin-right: 20px;
+        }
+
+        .header {
+            border-bottom: 1px solid #ccc;
+            margin-bottom: 20px;
             padding-bottom: 10px;
         }
-        .header h1 { 
-            margin: 0; 
-            color: #333; 
+
+        .header h1 {
+            margin: 0;
+            color: #333;
         }
-        .nav { 
-            margin-bottom: 20px; 
+
+        .content {
+            font-size: 16px;
         }
-        .nav a { 
-            color: #007cba; 
-            text-decoration: none; 
-            margin-right: 15px;
-        }
-        .nav a:hover { 
-            text-decoration: underline; 
-        }
-        .content { 
-            font-size: 16px; 
-        }
-        .content h1, .content h2, .content h3 { 
-            color: #333; 
-            border-bottom: 1px solid #eee; 
+
+        .content h1, .content h2, .content h3 {
+            color: #333;
+            border-bottom: 1px solid #eee;
             padding-bottom: 5px;
         }
-        .content a { 
-            color: #007cba; 
-            text-decoration: none; 
+
+        .content a {
+            color: #007cba;
+            text-decoration: none;
         }
-        .content a:hover { 
-            text-decoration: underline; 
+
+        .content a:hover {
+            text-decoration: underline;
         }
-        .content p { 
-            margin-bottom: 15px; 
+
+        .content p {
+            margin-bottom: 15px;
         }
-        .content ul, .content ol { 
-            margin-bottom: 15px; 
+
+        .content ul, .content ol {
+            margin-bottom: 15px;
         }
-        .loading { 
-            color: #666; 
-            font-style: italic; 
+
+        .nav {
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
+
+        .nav a {
+            color: #007cba;
+            text-decoration: none;
+        }
+
+        .nav a:hover {
+            text-decoration: underline;
+        }
+
+        #selectHint {
+            margin-bottom: 10px;
+        }
+
+        .search-box {
+            margin: 20px 0;
+        }
+
+        input[type="text"] {
+            padding: 5px 10px;
+            width: 300px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 5px 10px;
+            font-size: 14px;
+            background: #007cba;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #005a87;
+        }
+
+        .hint {
+            color: #333;
+        }
+
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+
         .loading::after {
             content: '';
             animation: dots 1.5s steps(5, end) infinite;
         }
+
         @keyframes dots {
-            0%, 20% { content: ''; }
-            40% { content: '.'; }
-            60% { content: '..'; }
-            80%, 100% { content: '...'; }
+            0%, 20% {
+                content: '';
+            }
+            40% {
+                content: '.';
+            }
+            60% {
+                content: '..';
+            }
+            80%, 100% {
+                content: '...';
+            }
         }
+
         .selection-popup {
             position: absolute;
             background: #007cba;
@@ -74,16 +141,18 @@
             font-size: 14px;
             cursor: pointer;
             z-index: 1000;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             display: none;
             white-space: nowrap;
             max-width: 300px;
             text-overflow: ellipsis;
             overflow: hidden;
         }
+
         .selection-popup:hover {
             background: #005a87;
         }
+
         .selection-popup::before {
             content: '';
             position: absolute;
@@ -93,130 +162,236 @@
             border: 5px solid transparent;
             border-top-color: #007cba;
         }
+
         .content {
             user-select: text;
         }
     </style>
 </head>
 <body>
-    <div class="nav">
-        <a href="/">Home</a>
-        <a href="javascript:history.back()">Back</a>
-        Select any text to make it the title of your next article (once generation completes).
+<div class="nav">
+    <a href="/" class="title">Endless Wiki</a>
+    <div class="search-box">
+        <label for="searchInput" style="display:none;">Enter topic</label>
+        <input type="text" id="searchInput" placeholder="Enter any topic...">
+        <button id="searchButton">Generate Article</button>
     </div>
-    
-    <div class="content" id="content">
-        <div class="loading">Generating article</div>
-    </div>
-    
-    <div id="selectionPopup" class="selection-popup">
-        Go to article →
-    </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script>
-        const eventSource = new EventSource('/stream/{{.Title}}');
-        const contentDiv = document.getElementById('content');
-        const popup = document.getElementById('selectionPopup');
-        let selectedText = '';
-        
-        eventSource.onmessage = function(event) {
-            // Handle default messages
-        };
-        
-        eventSource.addEventListener('content', function(event) {
-            let content = event.data.replace(/\\n/g, '\n');
-            
-            // Strip out markdown code fences if they appear at the start
-            content = content.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '');
-            
-            // Parse markdown and render as HTML
-            const htmlContent = marked.parse(content);
-            contentDiv.innerHTML = htmlContent;
-        });
-        
-        eventSource.addEventListener('complete', function(event) {
-            eventSource.close();
-        });
-        
-        eventSource.addEventListener('error', function(event) {
-            contentDiv.innerHTML = '<p style="color: red;">Error generating article. Please try again.</p>';
-            eventSource.close();
-        });
-        
-        eventSource.onerror = function(event) {
-            contentDiv.innerHTML = '<p style="color: red;">Connection error. Please try again.</p>';
-            eventSource.close();
-        };
-        
-        // Handle text selection
-        document.addEventListener('mouseup', function(event) {
-            // Don't interfere if clicking on the popup
-            if (event.target === popup || popup.contains(event.target)) {
-                return;
+    <label for="lang" style="display:none;">Language</label>
+    <select id="lang" name="lang">
+        <option value="en" selected>English</option>
+        <option value="de">Deutsch</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
+        <option value="it">Italiano</option>
+        <option value="zh">中文</option>
+        <option value="ja">日本語</option>
+    </select>
+    <a href="#" id="savePageLink" style="margin-left:auto;">Save Page</a>
+</div>
+<div id="selectHint" class="loading">Generating article</div>
+<div class="content" id="content">
+</div>
+
+<div id="selectionPopup" class="selection-popup">
+    Go to article →
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    // Setzt das Dropdown entsprechend der URL-Query
+    function setLangFromQuery() {
+        const params = new URLSearchParams(window.location.search);
+        const lang = params.get('lang') || 'en';
+        document.getElementById('lang').value = lang;
+    }
+
+    setLangFromQuery();
+
+    const eventSource = new EventSource('/stream/' + encodeURIComponent('{{.Title}}') + '?lang={{.Lang}}');
+    const contentDiv = document.getElementById('content');
+    const popup = document.getElementById('selectionPopup');
+    let selectedText = '';
+
+    eventSource.onmessage = function (event) {
+        // Handle default messages
+    };
+
+    eventSource.addEventListener('content', function (event) {
+        let content = event.data.replace(/\\n/g, '\n');
+        content = content.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '');
+        const htmlContent = marked.parse(content);
+        contentDiv.innerHTML = htmlContent;
+    });
+
+    eventSource.addEventListener('complete', function (event) {
+        eventSource.close();
+        document.getElementById('selectHint').textContent = 'Select any text to make it the title of your next article (once generation completes).';
+        document.getElementById('selectHint').classList.remove('loading');
+        document.getElementById('selectHint').classList.add('hint');
+    });
+
+    eventSource.addEventListener('error', function (event) {
+        contentDiv.innerHTML = '<p style="color: red;">Error generating article. Please try again.</p>';
+        eventSource.close();
+    });
+
+    eventSource.onerror = function (event) {
+        contentDiv.innerHTML = '<p style="color: red;">Connection error. Please try again.</p>';
+        eventSource.close();
+    };
+
+    document.addEventListener('mouseup', function (event) {
+        if (event.target === popup || popup.contains(event.target)) {
+            return;
+        }
+        setTimeout(function () {
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
+            if (text.length > 0 && text.length <= 100) {
+                selectedText = text;
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                popup.style.left = Math.max(10, rect.left + rect.width / 2 - 75) + 'px';
+                popup.style.top = (rect.top - 50 + window.scrollY) + 'px';
+                popup.style.display = 'block';
+                popup.textContent = 'Go to "' + text + '"';
+            } else {
+                popup.style.display = 'none';
             }
-            
-            setTimeout(function() {
-                const selection = window.getSelection();
-                const text = selection.toString().trim();
-                
-                if (text.length > 0 && text.length <= 100) {
-                    selectedText = text;
-                    const range = selection.getRangeAt(0);
-                    const rect = range.getBoundingClientRect();
-                    
-                    // Position popup above the selection
-                    popup.style.left = Math.max(10, rect.left + rect.width / 2 - 75) + 'px';
-                    popup.style.top = (rect.top - 50 + window.scrollY) + 'px';
-                    popup.style.display = 'block';
-                    popup.textContent = 'Go to "' + text + '"';
-                } else {
+        }, 100);
+    });
+
+    popup.addEventListener('click', function () {
+        if (selectedText) {
+            const lang = document.getElementById('lang').value;
+            window.location.href = '/wiki/' + encodeURIComponent(selectedText) + '?lang=' + encodeURIComponent(lang);
+        }
+    });
+
+    document.addEventListener('click', function (event) {
+        if (event.target !== popup && !popup.contains(event.target)) {
+            popup.style.display = 'none';
+        }
+    });
+
+    document.addEventListener('selectionchange', function () {
+        setTimeout(function () {
+            const selection = window.getSelection();
+            if (selection.toString().trim().length === 0 && popup.style.display === 'block') {
+                if (!popup.matches(':hover')) {
                     popup.style.display = 'none';
                 }
-            }, 100);
-        });
-        
-        // Handle popup click
-        popup.addEventListener('click', function() {
-            if (selectedText) {
-                window.location.href = '/wiki/' + encodeURIComponent(selectedText);
             }
-        });
-        
-        // Hide popup when clicking elsewhere
-        document.addEventListener('click', function(event) {
-            if (event.target !== popup && !popup.contains(event.target)) {
-                popup.style.display = 'none';
-                // Don't clear selection immediately, let it persist briefly
-            }
-        });
-        
-        // Hide popup when selection changes to empty (but with delay to allow popup clicks)
-        document.addEventListener('selectionchange', function() {
-            setTimeout(function() {
-                const selection = window.getSelection();
-                if (selection.toString().trim().length === 0 && popup.style.display === 'block') {
-                    // Only hide if we're not hovering over the popup
-                    if (!popup.matches(':hover')) {
-                        popup.style.display = 'none';
-                    }
+        }, 200);
+    });
+
+    window.addEventListener('beforeunload', function () {
+        if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
+            eventSource.close();
+        }
+    });
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden && eventSource && eventSource.readyState !== EventSource.CLOSED) {
+            eventSource.close();
+        }
+    });
+
+    document.getElementById('searchInput').addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            searchWiki();
+        }
+    });
+
+    document.getElementById('searchButton').addEventListener('click', searchWiki);
+
+    document.getElementById('lang').addEventListener('change', function () {
+        const params = new URLSearchParams(window.location.search);
+        params.set('lang', this.value);
+        window.location.search = params.toString();
+    });
+
+    function searchWiki() {
+        const input = document.getElementById('searchInput');
+        const topic = input.value.trim();
+        const lang = document.getElementById('lang').value;
+        if (topic) {
+            window.location.href = '/wiki/' + encodeURIComponent(topic) + '?lang=' + encodeURIComponent(lang);
+        }
+    }
+
+    document.getElementById('savePageLink').addEventListener('click', function (event) {
+        event.preventDefault();
+        const title = '{{.Title}}';
+        const content = contentDiv.innerHTML;
+        const style = `<style>
+                body {
+                    font-family: Georgia, serif;
+                    max-width: 900px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    line-height: 1.6;
                 }
-            }, 200);
-        });
-        
-        // Stop article generation when user navigates away
-        window.addEventListener('beforeunload', function() {
-            if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
-                eventSource.close();
-            }
-        });
-        
-        // Also stop generation when page becomes hidden (tab switching, etc.)
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden && eventSource && eventSource.readyState !== EventSource.CLOSED) {
-                eventSource.close();
-            }
-        });
-    </script>
+                .title {
+                    font-size: 24px;
+                    font-weight: bold;
+                    text-decoration: none;
+                    margin-right: 20px;
+                }
+                .header {
+                    border-bottom: 1px solid #ccc;
+                    margin-bottom: 20px;
+                    padding-bottom: 10px;
+                }
+                .header h1 {
+                    margin: 0;
+                    color: #333;
+                }
+                .content {
+                    font-size: 16px;
+                }
+                .content h1, .content h2, .content h3 {
+                    color: #333;
+                    border-bottom: 1px solid #eee;
+                    padding-bottom: 5px;
+                }
+                .content a {
+                    color: #007cba;
+                    text-decoration: none;
+                }
+                .content a:hover {
+                    text-decoration: underline;
+                }
+                .content p {
+                    margin-bottom: 15px;
+                }
+                .content ul, .content ol {
+                    margin-bottom: 15px;
+                }
+            </style>`;
+        const html = `<!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="UTF-8">
+        <title>${title}</title>
+        ${style}
+        </head>
+        <body>
+        <div class="content">
+        ${content}
+        </div>
+        </body>
+        </html>`;
+        const blob = new Blob([html], {type: 'text/html'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = title.replace(/\s+/g, '_') + '.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+</script>
 </body>
 </html>

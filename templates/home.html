@@ -1,7 +1,12 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Endless Wiki</title>
+    <link rel="icon" type="image/png" sizes="192x192"  href="/static/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/static/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
         h1 { color: #333; }
@@ -17,11 +22,24 @@
 <body>
     <h1>Welcome to Endless Wiki</h1>
     <p>An infinite wiki powered by AI. Search for any topic and get a generated article with links to explore further.</p>
-    
+
     <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Enter any topic..." onkeypress="handleKeyPress(event)">
-        <button onclick="searchWiki()">Generate Article</button>
+        <label for="searchInput" style="display:none;">Enter topic</label>
+        <input type="text" id="searchInput" placeholder="Enter any topic...">
+        <button id="searchButton">Generate Article</button>
     </div>
+
+    <p>You can select what language the articles should be generated in.</p>
+    <label for="lang" style="display:none;">Language</label>
+    <select id="lang" name="lang">
+        <option value="en" selected>English</option>
+        <option value="de">Deutsch</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
+        <option value="it">Italiano</option>
+        <option value="zh">中文</option>
+        <option value="ja">日本語</option>
+    </select>
     
     <div class="examples">
         <h3>Try these examples:</h3>
@@ -31,19 +49,37 @@
         <a href="/wiki/Space Exploration">Space Exploration</a>
         <a href="/wiki/Renaissance Art">Renaissance Art</a>
     </div>
-    
+
     <script>
-        function handleKeyPress(event) {
+        // Set das Dropdown entsprechend der URL-Query
+        function setLangFromQuery() {
+            const params = new URLSearchParams(window.location.search);
+            const lang = params.get('lang') || 'en';
+            document.getElementById('lang').value = lang;
+        }
+
+        setLangFromQuery();
+
+        document.getElementById('searchInput').addEventListener('keydown', function(event) {
             if (event.key === 'Enter') {
                 searchWiki();
             }
-        }
-        
+        });
+
+        document.getElementById('searchButton').addEventListener('click', searchWiki);
+
+        document.getElementById('lang').addEventListener('change', function() {
+            const params = new URLSearchParams(window.location.search);
+            params.set('lang', this.value);
+            window.location.search = params.toString();
+        });
+
         function searchWiki() {
             const input = document.getElementById('searchInput');
             const topic = input.value.trim();
+            const lang = document.getElementById('lang').value;
             if (topic) {
-                window.location.href = '/wiki/' + encodeURIComponent(topic);
+                window.location.href = '/wiki/' + encodeURIComponent(topic) + '?lang=' + encodeURIComponent(lang);
             }
         }
     </script>
